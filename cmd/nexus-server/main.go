@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/nexus/core/internal/handlers"
 )
 
 // HealthResponse defines the telemetry status payload
@@ -40,12 +42,13 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		
-		// Corrected JSON Encoding
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log.Printf("[ERROR] Failed to encode health response: %v", err)
 		}
 	})
+
+	// Bimodal Authentication Gateway
+	mux.HandleFunc("/api/v1/auth/register", handlers.HandleRegister)
 
 	// Server Configuration with strict timeouts
 	server := &http.Server{
