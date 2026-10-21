@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/nexus/core/internal/middleware"
 	"github.com/nexus/core/internal/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// HandleRegister processes secure bimodal user registration
+// HandleRegister processes secure bimodal user registration and issues a JWT token
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -23,13 +25,11 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Email and Password
 	if req.Email == "" || len(req.Password) < 8 {
 		http.Error(w, "Email is required and password must be at least 8 characters", http.StatusBadRequest)
 		return
 	}
 
-	// Validate Role Bimodality
 	var userRole models.Role
 	switch req.Role {
 	case "TALENT":
@@ -41,7 +41,6 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cryptographic Password Hashing (Cost factor 12)
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 	if err != nil {
 		log.Printf("[ERROR] Failed to hash password: %v", err)
@@ -49,7 +48,6 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Construct User Node (In-memory storage for now, upgrading to CockroachDB in Phase 4)
 	newUser := models.User{
 		ID:           generateSecureUUID(),
 		Email:        req.Email,
@@ -58,24 +56,36 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    time.Now().UTC(),
 	}
 
-	log.Printf("[NEXUS SEC] Registered new [%s] node: %s", newUser.Role, newUser.Email)
+	// Mint JWT Token valid for 24 hours
+	claims := middleware.JWTClaims{
+		Email: newUser.Email,
+		Role:  string(newUser.Role),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
 
-	// Respond with success and sanitized user profile
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(middleware.JwtSecret)
+	if err != nil {
+		log.Printf("[ERROR] Failed to sign token: %v", err)
+		http.Error(w, "Failed to generate session token", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("[NEXUS SEC] Registered and minted token for [%s] node: %s", newUser.Role, newUser.Email)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		statusKey:   "SUCCESS",
-		messageKey:  "Node registered successfully",
-		"user":      newUser,
+		"status":  "SUCCESS",
+		"message": "Node registered successfully with active session",
+		"token":   tokenString,
+		"user":    newUser,
 	})
 }
 
-const (
-	statusKey  = "status"
-	messageKey = "message"
-)
-
-// Simple pseudo-UUID generator for the initial core engine
 func generateSecureUUID() string {
 	return time.Now().Format("20060102150405") + "-NEXUS-NODE"
 }
