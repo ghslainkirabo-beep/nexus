@@ -1,0 +1,14 @@
+# Binaries
+/bin/
+/vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# OS Files
+.DS_Store
+.vscode/
