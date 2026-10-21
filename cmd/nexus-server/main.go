@@ -57,6 +57,9 @@ func main() {
 	// Bimodal Authentication Gateway
 	mux.HandleFunc("/api/v1/auth/register", handlers.HandleRegister)
 
+	// Google Pillar Semantic Matching Endpoint
+	mux.HandleFunc("/api/v1/intelligence/match", handlers.HandleSemanticMatch)
+
 	// Real-Time Capability Pulse Stream (Server-Sent Events / Spotify Pillar Stream)
 	mux.HandleFunc("/api/v1/stream/pulses", func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
