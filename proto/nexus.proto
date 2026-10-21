@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package nexus.v1;
+
+option go_package = "github.com/nexus/core/proto/v1;nexusv1";
+
+// Real-time telemetry and capability pulse service
+service NexusStreamService {
+  // Stream real-time professional capability pulses from talent nodes to entity command centers
+  rpc StreamCapabilities(CapabilityRequest) returns (stream CapabilityPulseResponse);
+}
+
+message CapabilityRequest {
+  string node_id = 1;
+  string role = 2; // "TALENT" or "ENTITY"
+  string skill_fingerprint = 3;
+}
+
+message CapabilityPulseResponse {
+  string pulse_id = 1;
+  string node_id = 2;
+  string matched_opportunity = 3;
+  int64 latency_ns = 4;
+  string status = 5;
+}
